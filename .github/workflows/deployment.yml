@@ -27,7 +27,7 @@ jobs:
           aws-region: us-east-1
       - name: Create EBS application
         run: |
-          eb init -p python-3.8 hello-world --region us-east-1
+          eb init -p python-3.8 ${{ secrets.AWS_APPLICATION_NAME }} --region us-east-1
       - name: Create test environment & deploy
         run: |
           (eb use ${{ secrets.AWS_APPLICATION_ENVIRONMENT }} && eb status ${{ secrets.AWS_APPLICATION_ENVIRONMENT }} && eb deploy) || eb create ${{ secrets.AWS_APPLICATION_ENVIRONMENT }}
