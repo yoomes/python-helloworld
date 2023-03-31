@@ -1,0 +1,46 @@
+name: Deployment
+on:
+  push:
+    branches: [ main ]
+jobs:
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Set up Python Environment
+        uses: actions/setup-python@v3
+        with:
+          python-version: '3.x'
+          architecture: 'x64'
+      - name: Install Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+      - name: Run Tests
+        run: |
+          python manage.py test
+  deploy:
+    needs: build
+    name: Deploy
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Github Source Code
+        uses: actions/checkout@v3
+      - name: Generate deployment package
+        run: zip -r deploy.zip . -x '*.git*'
+      - name: Create Version Label
+        run: |
+          echo "VERSION_LABEL=$(date +'%Y-%m-%d:%H:%M:%S')" >> $GITHUB_ENV
+      # Deploy zipped archive to AWS
+      - name: Deploy to EB
+        uses: einaregilsson/beanstalk-deploy@v21
+        with:
+          aws_access_key: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws_secret_key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          use_existing_version_if_available: true
+          application_name: ${{ secrets.AWS_APPLICATION_NAME }}
+          environment_name: ${{ secrets.AWS_APPLICATION_ENVIRONMENT }}
+          version_label: ${{ env.VERSION_LABEL }}
+          region: us-east-1
+          deployment_package: deploy.zip
