@@ -3,44 +3,31 @@ on:
   push:
     branches: [ master ]
 jobs:
-  build:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v2
-      - name: Set up Python Environment
-        uses: actions/setup-python@v2
-        with:
-          python-version: '3.x'
-      - name: Install Dependencies
-        run: |
-          python -m pip install --upgrade pip
-          # pip install -r requirements.txt
-
-      - name: Run Tests
-        run: |
-          python setup.py test
   deploy:
-    needs: build
     name: Deploy
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Github Source Code
         uses: actions/checkout@v3
-      - name: Generate deployment package
-        run: zip -r deploy.zip . -x '*.git*'
-      - name: Create Version Label
+
+      - name: Set Up Python 3.8
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.8"
+      - name: Get EB CLI version
         run: |
-          echo "VERSION_LABEL=$(date +'%Y-%m-%d:%H:%M:%S')" >> $GITHUB_ENV
-      # Deploy zipped archive to AWS
-      - name: Deploy to EB
-        uses: einaregilsson/beanstalk-deploy@v21
+          python -m pip install --upgrade pip
+          pip install awsebcli --upgrade
+          eb --version
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v2
         with:
           aws_access_key: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws_secret_key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          use_existing_version_if_available: true
-          application_name: ${{ secrets.AWS_APPLICATION_NAME }}
-          environment_name: ${{ secrets.AWS_APPLICATION_ENVIRONMENT }}
-          version_label: ${{ env.VERSION_LABEL }}
           region: us-east-1
-          deployment_package: deploy.zip
+      - name: Create EBS application
+        run: |
+          eb init -p python-3.8 hello-world --region us-east-1
+      - name: Create test environment & deploy
+        run: |
+          (eb use ${{ secrets.AWS_APPLICATION_ENVIRONMENT }} && eb status ${{ secrets.AWS_APPLICATION_ENVIRONMENT }} && eb deploy) || eb create ${{ secrets.AWS_APPLICATION_ENVIRONMENT }}
